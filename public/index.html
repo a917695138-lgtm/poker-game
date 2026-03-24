@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Texas Hold'em Poker</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--felt:#1a5f2a;--felt-dark:#0e3d19;--felt-light:#2a7a3a;--gold:#d4af37;--gold-light:#f0d060;--gold-dark:#a08020;--red:#c0392b;--card-white:#fdfbf7;--panel:rgba(10,30,10,0.92);--text:#f0ead6;--text-muted:#a0c090;--online:#2ecc71;--offline:#e74c3c}
+html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--felt-dark);color:var(--text);overflow:hidden;touch-action:manipulation}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,var(--felt) 0%,var(--felt-dark) 100%);z-index:-1}
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:var(--gold-light);padding:10px 24px;border-radius:24px;font-size:14px;border:1px solid var(--gold-dark);z-index:1000;transition:opacity 0.3s;opacity:0;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+#status-bar{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:center;padding:6px 12px;background:rgba(0,0,0,0.6);font-size:12px;gap:8px;z-index:100;border-bottom:1px solid rgba(212,175,55,0.2)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--offline);transition:background 0.3s}
+.status-dot.online{background:var(--online);box-shadow:0 0 6px var(--online)}
+.screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.screen.active{display:flex}
+.logo{text-align:center;margin-bottom:8px}
+.logo h1{font-size:28px;color:var(--gold);text-shadow:0 0 20px rgba(212,175,55,0.4);letter-spacing:2px}
+.logo p{color:var(--text-muted);font-size:13px;margin-top:4px}
+.card-stack{font-size:56px;transform:rotate(-8deg);margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(-8deg) translateY(-8px)}}
+.btn{background:linear-gradient(135deg,var(--gold-dark),var(--gold),var(--gold-dark));color:#1a1a0a;border:none;padding:14px 36px;border-radius:30px;font-size:16px;font-weight:700;cursor:pointer;min-width:200px;box-shadow:0 4px 16px rgba(212,175,55,0.3),inset 0 1px 0 rgba(255,255,255,0.3);transition:all 0.2s;letter-spacing:0.5px;touch-action:manipulation}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(212,175,55,0.5)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-secondary{background:rgba(255,255,255,0.1);color:var(--text);border:1px solid rgba(212,175,55,0.3)}
+.btn-secondary:hover{background:rgba(255,255,255,0.15)}
+.input-group{display:flex;flex-direction:column;gap:8px;width:100%;max-width:300px}
+.input-group label{font-size:13px;color:var(--text-muted);text-align:center}
+input[type="text"]{background:rgba(0,0,0,0.4);border:1px solid rgba(212,175,55,0.3);color:var(--text);padding:12px 20px;border-radius:12px;font-size:16px;text-align:center;outline:none;width:100%;transition:border-color 0.2s}
+input[type="text"]:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(212,175,55,0.2)}
+input[type="text"]::placeholder{color:rgba(240,234,214,0.3)}
+.divider{color:var(--text-muted);font-size:13px;padding:8px 0}
+.room-code-display{font-family:'Courier New',monospace;font-size:32px;font-weight:bold;color:var(--gold);letter-spacing:6px;text-shadow:0 0 20px rgba(212,175,55,0.5);background:rgba(0,0,0,0.3);padding:12px 24px;border-radius:12px;border:2px solid rgba(212,175,55,0.3);margin:4px 0}
+#waiting-screen{gap:16px}
+.waiting-header{text-align:center}
+.waiting-header h2{color:var(--gold);font-size:20px}
+.waiting-header p{color:var(--text-muted);font-size:13px;margin-top:4px}
+.players-list{background:var(--panel);border-radius:16px;padding:16px;width:100%;max-width:340px;border:1px solid rgba(212,175,55,0.2)}
+.players-list h3{font-size:13px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;text-align:center}
+.player-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.player-item:last-child{border-bottom:none}
+.player-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;background:rgba(212,175,55,0.2);border:2px solid rgba(212,175,55,0.3)}
+.player-info{flex:1}
+.player-name{font-size:15px;font-weight:600}
+.host-badge{font-size:10px;background:var(--gold);color:#1a1a0a;padding:1px 6px;border-radius:8px;margin-left:6px}
+.player-chips{font-size:12px;color:var(--text-muted)}
+#game-screen{padding:0;padding-top:28px;justify-content:flex-start;overflow:hidden}
+#community-area{display:flex;flex-direction:column;align-items:center;padding:16px 8px 4px;min-height:110px;width:100%}
+#community-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px}
+#community-cards{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+#pot-display{text-align:center;padding:4px 16px;margin:0 8px 4px;background:rgba(0,0,0,0.4);border-radius:20px;border:1px solid rgba(212,175,55,0.3)}
+.pot-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+.pot-amount{font-size:20px;color:var(--gold);font-weight:bold}
+#phase-bar{display:flex;align-items:center;justify-content:center;gap:6px;padding:4px 12px;font-size:11px;color:var(--text-muted)}
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2)}
+.dot.active{background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.dot.done{background:rgba(212,175,55,0.4)}
+#table-area{width:100%;display:flex;flex-direction:column;padding:4px}
+.player-seat{background:var(--panel);border-radius:12px;padding:6px 10px;margin:3px 4px;border:1px solid rgba(212,175,55,0.15);display:flex;align-items:center;gap:8px;transition:all 0.3s;min-height:54px}
+.player-seat.active-turn{border-color:var(--gold);box-shadow:0 0 12px rgba(212,175,55,0.4);animation:pulseGlow 1.5s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 8px rgba(212,175,55,0.3)}50%{box-shadow:0 0 18px rgba(212,175,55,0.6)}}
+.player-seat.folded{opacity:0.45}
+.player-seat.my-seat{border-color:var(--gold-dark);background:rgba(212,175,55,0.07)}
+.seat-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;background:rgba(212,175,55,0.2);border:2px solid rgba(212,175,55,0.4)}
+.seat-info{flex:1;min-width:0}
+.seat-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.badge{font-size:9px;padding:1px 5px;border-radius:6px}
+.badge-dealer{background:#3498db;color:#fff}
+.badge-you{background:var(--gold);color:#1a1a0a}
+.seat-chips{font-size:11px;color:var(--text-muted)}
+.seat-bet{font-size:11px;color:var(--gold);font-weight:600}
+.seat-cards{display:flex;gap:3px}
+.seat-status{font-size:10px;color:var(--offline)}
+.seat-status.online{color:var(--online)}
+.scroll-area{overflow-y:auto;flex:1;width:100%}
+#my-cards-area{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px;gap:4px}
+#my-cards-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:2px}
+#my-cards{display:flex;gap:8px;justify-content:center}
+#action-bar{background:var(--panel);border-top:1px solid rgba(212,175,55,0.2);padding:8px 12px 12px;display:flex;flex-direction:column;gap:6px;width:100%}
+#action-info{text-align:center;font-size:13px;color:var(--text-muted);min-height:18px}
+#action-info strong{color:var(--gold)}
+#action-buttons{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.action-btn{padding:10px 18px;border-radius:24px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;min-width:75px;text-align:center;touch-action:manipulation}
+.action-btn.fold{background:var(--red);color:#fff}
+.action-btn.check{background:#27ae60;color:#fff}
+.action-btn.call{background:#2980b9;color:#fff}
+.action-btn.bet{background:var(--gold);color:#1a1a0a}
+.action-btn.allin{background:#8e44ad;color:#fff}
+.action-btn.cancel{background:rgba(255,255,255,0.1);color:var(--text);border:1px solid rgba(255,255,255,0.2)}
+.action-btn:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.action-btn:active{transform:translateY(0)}
+.action-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;filter:none}
+#bet-area{display:none;flex-direction:column;align-items:center;gap:4px;width:100%}
+#bet-area.show{display:flex}
+#bet-slider{width:100%;max-width:280px;accent-color:var(--gold);cursor:pointer}
+#bet-value{font-size:18px;color:var(--gold);font-weight:bold}
+.card{width:48px;height:68px;border-radius:6px;position:relative;background:var(--card-white);box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0;user-select:none}
+.card.small{width:32px;height:46px;font-size:13px;border-radius:4px}
+.card.back{background:linear-gradient(135deg,#1a3a6a,#0d1f40);border:2px solid rgba(212,175,55,0.4);box-shadow:inset 0 0 10px rgba(0,0,0,0.5),0 2px 8px rgba(0,0,0,0.4)}
+.card.back::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:rgba(212,175,55,0.25);border:2px solid rgba(212,175,55,0.4)}
+.card.hearts,.card.diamonds{color:var(--red)}
+.card.spades,.card.clubs{color:#1a1a1a}
+.card .suit{font-size:22px}
+.card.small .suit{font-size:14px}
+.card .rank{position:absolute;top:3px;left:4px;font-size:13px;line-height:1}
+.card.small .rank{font-size:10px;top:2px;left:3px}
+.card .rank-bottom{position:absolute;bottom:3px;right:4px;font-size:13px;line-height:1;transform:rotate(180deg)}
+.card.small .rank-bottom{font-size:10px;bottom:2px;right:3px}
+.card.flip{animation:cardFlip 0.4s ease-out}
+@keyframes cardFlip{0%{transform:rotateY(90deg);opacity:0}100%{transform:rotateY(0);opacity:1}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--panel);border:2px solid var(--gold);border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.8);animation:modalIn 0.3s ease-out}
+@keyframes modalIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h2{font-size:22px;margin-bottom:4px}
+.winner-name{color:var(--gold);font-size:26px;font-weight:bold}
+.hand-name{color:var(--text-muted);font-size:15px;margin:8px 0}
+.winnings{color:var(--gold-light);font-size:20px;font-weight:bold;margin:8px 0}
+.cards-row{display:flex;gap:6px;justify-content:center;margin:12px 0;flex-wrap:wrap}
+.modal p{color:var(--text-muted);font-size:13px;margin:8px 0}
+#log-feed{position:fixed;bottom:155px;right:6px;max-width:180px;display:flex;flex-direction:column;gap:3px;z-index:50;pointer-events:none}
+.log-entry{font-size:11px;color:var(--text-muted);background:rgba(0,0,0,0.6);padding:3px 8px;border-radius:8px;border-left:2px solid var(--gold-dark);animation:logSlide 0.3s ease-out}
+@keyframes logSlide{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.3);border-radius:4px}
+@media(max-width:380px){.card{width:42px;height:60px}.card.small{width:28px;height:40px}}
+@media(min-width:600px){.card{width:56px;height:80px}.card.small{width:36px;height:52px}.player-seat{padding:10px 14px;min-height:60px}}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="status-bar"><div class="status-dot" id="ws-dot"></div><span id="status-text">Connecting<span class="loading-dots"></span></span></div>
+
+<div id="lobby-screen" class="screen active">
+  <div class="card-stack">🂠🂡🂱</div>
+  <div class="logo"><h1>TEXAS HOLD'EM</h1><p>Real-time Multiplayer Poker</p></div>
+  <div class="input-group">
+    <label>Your name</label>
+    <input type="text" id="player-name-lobby" placeholder="Enter name..." maxlength="20" autocomplete="off">
+    <button class="btn" id="create-btn">Create Room</button>
+  </div>
+  <div class="divider">— or join a room —</div>
+  <div class="input-group">
+    <input type="text" id="room-code-input" placeholder="ROOM CODE" maxlength="8" autocomplete="off" style="text-transform:uppercase;letter-spacing:2px;">
+    <input type="text" id="join-name-input" placeholder="Your name..." maxlength="20" autocomplete="off">
+    <button class="btn btn-secondary" id="join-btn">Join Room</button>
+  </div>
+</div>
+
+<div id="waiting-screen" class="screen">
+  <div class="waiting-header"><h2>Game Lobby</h2><p>Share the code with friends</p></div>
+  <div class="room-code-display" id="display-room-code">------</div>
+  <div style="font-size:12px;color:var(--text-muted)">Room Code</div>
+  <div class="players-list"><h3>Players (<span id="player-count">0</span>/9)</h3><div id="players-list-container"></div></div>
+  <button class="btn" id="start-game-btn" disabled>Need 2+ players</button>
+  <button class="btn btn-secondary" id="leave-btn" style="margin-top:4px;font-size:13px;padding:8px 24px;min-width:auto;">Leave Room</button>
+</div>
+
+<div id="game-screen" class="screen">
+  <div id="community-area"><div id="community-label">Community Cards</div><div id="community-cards"></div></div>
+  <div id="pot-display"><div class="pot-label">Pot</div><div class="pot-amount" id="pot-amount">0</div></div>
+  <div id="phase-bar"><span>Pre</span><div class="dot" id="dot-0"></div><span>Flop</span><div class="dot" id="dot-1"></div><span>Turn</span><div class="dot" id="dot-2"></div><span>River</span><div class="dot" id="dot-3"></div></div>
+  <div class="scroll-area"><div id="table-area"></div></div>
+  <div id="my-cards-area"><div id="my-cards-label">Your Cards</div><div id="my-cards"></div></div>
+  <div id="action-bar">
+    <div id="action-info"></div>
+    <div id="bet-area"><div id="bet-value">2</div><input type="range" id="bet-slider" min="2" max="40" value="2" step="1"></div>
+    <div id="action-buttons"></div>
+  </div>
+  <div id="log-feed"></div>
+</div>
+
+<div id="showdown-modal" class="modal-overlay">
+  <div class="modal">
+    <h2 id="modal-title">Showdown!</h2>
+    <div class="winner-name" id="modal-winner"></div>
+    <div class="hand-name" id="modal-hand"></div>
+    <div class="winnings" id="modal-pot"></div>
+    <div class="cards-row" id="modal-cards"></div>
+    <p id="modal-subtitle">Next hand starting soon...</p>
+    <button class="btn btn-secondary" id="modal-close-btn" style="margin-top:12px;font-size:13px;padding:8px 24px;min-width:auto;">OK</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
